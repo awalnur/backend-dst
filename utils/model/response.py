@@ -12,9 +12,9 @@ from pydantic import BaseModel
 
 
 class DefaultResponse(BaseModel):
-    status_code: int
-    message: str
-    data: Any | None
+    status_code: int = 200
+    message: str = ''
+    data: Any | None = None
 
 class ErrorResponse(BaseModel):
     detail: str

@@ -2,24 +2,21 @@
 #                                           
 #   Project Name :  be_sistem_pakar               
 #   -------------------------------------   
-#   Create by    : hexa at 17/03/24       
+#   Create by    : hexa at 23/04/24       
 #   Copyright © 2024 Delameta Bilano     
 #                                           
 # ============================================
+import uuid
+
 from pydantic import BaseModel
 
 
-class kodeGejala(BaseModel):
-    kode_gejala: str
+class FarmData(BaseModel):
+    nama_peternakan: str
+    alamat_peternakan: str
 
-class ruleGejala(kodeGejala):
-    bobot: float
-
-
-class addRule(BaseModel):
-    kode_penyakit: str
-    gejala: list[ruleGejala]
-
-
-class updateRule(BaseModel):
-    gejala: list[ruleGejala]
+class FarmAll(BaseModel):
+    kode_peternakan: int
+    nama_peternakan: str
+    alamat_peternakan: str
+    user_id: str

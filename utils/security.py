@@ -140,6 +140,46 @@ async def get_current_user(
     return user
 
 
+
+async def get_current_user_2(
+        db: Annotated[Session, Depends(get_db)],
+        security_scopes: SecurityScopes, token: Annotated[str, Depends(oauth2_scheme)],
+        redis_con: Annotated[Redis, Depends(get_redis)]
+):
+    try:
+        payload = jwt.decode(token, config.SECRET_KEY, algorithms=[config.ALGORITHM])
+        user_id: str = payload.get("sub")
+        #user_id = kode_user
+        check_token = redis_con.get(f"userid_a_{user_id}")
+        if check_token is None:
+            return None
+
+        if token != check_token.decode('utf-8'):
+
+            return None
+
+        if user_id is None:
+            return None
+
+        token_scopes = payload.get("scopes", [])
+        token_data = TokenData(scopes=token_scopes, user_id=user_id)
+    except (JWTError, ValidationError):
+        return None
+    user = UserService(db=db).get_user_by_id(db, user_id=token_data.user_id)
+    if user is None:
+        return None
+    # if config.ENVIRONMENT == "production":
+    # print(user.level)
+    role = [user.level]
+    scopes = security_scopes.scopes
+    for scope in role:
+        scopes = security_scopes.scopes
+        if scope not in scopes:
+            return None
+
+    return user
+
+
 async def get_current_active_user(
         current_user: Annotated[Users, Security(get_current_user)]
 ):

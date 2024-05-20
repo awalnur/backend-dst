@@ -19,6 +19,8 @@ from api.routers import routers
 
 app_version = 'v1'
 api_name = 'Backend Sistem Pakar'
+
+
 def app():
     def custom_openapi():
         if app.openapi_schema:
@@ -32,7 +34,6 @@ def app():
 
         app.openapi_schema = openapi_schema
         return app.openapi_schema
-
 
     app = FastAPI(
         default_response_class=ORJSONResponse,
@@ -57,6 +58,7 @@ def app():
     add_pagination(app)
     routers(app)
     return app
+
 
 async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
     return JSONResponse(

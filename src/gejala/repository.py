@@ -13,7 +13,7 @@ from src.gejala.model import ModelGejala
 from src.schema import BaseGejala
 
 
-class RepoGejalan:
+class RepoGejala:
 
     def __init__(self, db: Session):
         self.db = db
@@ -63,10 +63,10 @@ class RepoGejalan:
 
     async def get_all_gejala(self, limit: int = 10, offset: int = 0, searchBy: str = "", search: str = "", order: str = "", by: str = ""):
         data = self.db.query(BaseGejala)
+        total_data = data.count()
         if searchBy and search:
             print(getattr(BaseGejala, searchBy))
             data = data.filter(getattr(BaseGejala, searchBy).ilike(f'%{search}%'))
-            print(data)
         if order:
             if by == "asc":
                 data = data.order_by(getattr(BaseGejala, order).asc())
@@ -83,13 +83,30 @@ class RepoGejalan:
 
         all_data = data.all()
         # penyakit_dicts = [row.dict() for row in all_data]\
-        resdata = []
-        for row in all_data:
-            resdata.append(
-                {
-                    "kode_gejala": row.kode_gejala,
-                    "gejala": row.gejala,
+        if limit==1000:
+            resdata = []
+            for row in all_data:
+                resdata.append(
+                    {
+                        "kode_gejala": row.kode_gejala,
+                        "gejala": row.gejala,
+                    }
+                )
+        else:
+            resdata = {}
+            entries = []
+            for row in all_data:
+                entries.append(
+                    {
+                        "kode_gejala": row.kode_gejala,
+                        "gejala": row.gejala,
 
-                }
-            )
+                    }
+                )
+            resdata={
+                "entries": entries,
+                 'entries_total': len(entries),
+                'data_total': total_data,
+                'total_page': int(total_data / limit) + 1 if total_data % limit != 0 else int(total_data / limit),
+            }
         return resdata

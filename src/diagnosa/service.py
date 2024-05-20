@@ -6,16 +6,20 @@
 #   Copyright © 2024 Delameta Bilano     
 #                                           
 # ============================================
+from sqlalchemy import and_
 from sqlalchemy.orm import Session
 
-from src.schema import Rule
+from src.diagnosa.repository import RepoDempsterShafer
+from src.penyakit.repository import RepoPenyakit
+from src.schema import Rule, RiwayatDiagnosa, BasePenyakit, BaseGejala, Users, DetailPengguna
 
 
 class DempsterShafer:
 
     def __init__(self, session: Session):
         self.session = session
-
+        self.repo = RepoDempsterShafer(session)
+        self.penyakit = RepoPenyakit(session)
     def calculate_dempster_shafer(self, observations, belief_dict):
         # TODO
         m = []
@@ -53,18 +57,21 @@ class DempsterShafer:
                         sums[himpunan] += entry['bel']
                     else:
                         sums[himpunan] = entry['bel']
-
                 # Convert aggregated sums to list of dictionaries
-                result = [{'himpunan': set(himpunan), 'bel': bel / div} for himpunan, bel in sums.items()]
-                m = result
+                if div==0:
+                    result = [{'himpunan': set(himpunan), 'bel': 0} for himpunan, bel in sums.items()]
+                    m = result
+                else:
+                    result = [{'himpunan': set(himpunan), 'bel': bel / div} for himpunan, bel in sums.items()]
+                    m = result
 
         result = max(m, key=lambda x: x['bel'])
         return result
 
-    def dempster_shafer(self, data: dict):
+    async def dempster_shafer(self, data: dict, user_id: str=None, farm_id: str=None):
         # TODO
         evidence = {}
-        print(len(data) )
+
         if len(data['gejala']) < 2:
             return 'Failed to calculate dempster shafer, data must be more than 1'
         for gejala in data['gejala']:
@@ -75,11 +82,125 @@ class DempsterShafer:
             }
 
         sorted_evidence = dict(sorted(evidence.items(), key=lambda item: item[1]['m'], reverse=True))
-        # print(sorted_evidence)
-
         res = self.calculate_dempster_shafer(data, sorted_evidence)
-        result={'penyakit': 'Penyakit Tidak terdeteksi', 'bel': 0}
+        result={'penyakit': '00','kesimpulan':'Penyakit Tidak terdeteksi', 'bel': 0}
         if res['bel'] > 0.5:
-            result['penyakit']= res['himpunan']
+            res_penyakit = await self.penyakit.get_penyakit_by_id(kode_penyakit=list(res['himpunan'])[0])
+            print(res_penyakit[1])
+            result['penyakit']= list(res['himpunan'])[0]
             result['bel'] = res['bel']
-        return result
+            result['kesimpulan'] = res_penyakit[1]
+
+        if user_id is not None:
+            data = {
+                'kode_penyakit': result['penyakit'],
+                'kode_gejala': data['gejala'],
+                'kode_pengguna': user_id,
+                'kode_peternakan': data['kode_peternakan'],
+                'persentase': result['bel'],
+                'kesimpulan': result['kesimpulan']}
+
+        else:
+            data = {
+                'kode_penyakit': result['penyakit'],
+                'kode_gejala': data['gejala'],
+                'kode_pengguna': None,
+                'kode_peternakan': None,
+                'persentase': result['bel'],
+                'kesimpulan': result['kesimpulan']}
+
+        success, message, id = await self.save_diagnose(data=data)
+        return success, message, id
+
+    async def save_diagnose(self, data: dict):
+        # TODO
+        insert_data = {
+            'kode_penyakit': data['kode_penyakit'],
+            'kode_gejala': data['kode_gejala'],
+            'kode_user': data['kode_pengguna'],
+            'kode_peternakan': data['kode_peternakan'],
+            'persentase': data['persentase'],
+            'kesimpulan': data['kesimpulan']
+        }
+
+        success, message, id = await self.repo.save_diagnose(data=insert_data)
+        print(success, message)
+        return success, message, id
+
+
+    async def get_diagnose_by_id(self, id: int, kode_user:str=None, admin=False):
+        if admin is True:
+            filter = and_(RiwayatDiagnosa.kode_riwayat == id)
+        else:
+            if kode_user is not None:
+                filter = and_(RiwayatDiagnosa.kode_riwayat == id, RiwayatDiagnosa.kode_user == kode_user)
+            else:
+                filter = and_(RiwayatDiagnosa.kode_riwayat == id, RiwayatDiagnosa.kode_user==None)
+        data = self.session.query(
+            RiwayatDiagnosa.kode_riwayat,
+            RiwayatDiagnosa.kode_user,
+            RiwayatDiagnosa.kode_peternakan,
+            RiwayatDiagnosa.kode_gejala,
+            RiwayatDiagnosa.persentase,
+            RiwayatDiagnosa.kesimpulan,
+            RiwayatDiagnosa.kode_penyakit,
+            BasePenyakit
+        ).join(BasePenyakit, BasePenyakit.kode_penyakit == RiwayatDiagnosa.kode_penyakit).filter(filter).first()
+        if data:
+            # Extract the fields from the query result
+            (kode_riwayat, kode_user, kode_peternakan, kode_gejala, persentase, kesimpulan, kode_penyakit,
+             base_penyakit) = data
+
+            # Convert the BasePenyakit object to a dictionary
+            base_penyakit_dict = base_penyakit.__dict__
+
+            # Remove the "_sa_instance_state" key from the dictionary
+            base_penyakit_dict.pop('_sa_instance_state', None)
+            base_penyakit_dict.pop('created_at', None)
+            base_penyakit_dict.pop('updated_at', None)
+            data_gejala = self.session.query(BaseGejala.gejala).filter(BaseGejala.kode_gejala.in_(data.kode_gejala)).all()
+            if admin:
+                user_data = self.session.query(Users.username, Users.nama_depan, Users.nama_belakang).filter(Users.kode_user == data.kode_user).first()
+                farm_data = self.session.query(DetailPengguna.nama_peternakan, DetailPengguna.alamat_peternakan).filter(DetailPengguna.kode_peternakan == data.kode_peternakan).first()
+
+                if user_data:
+                    nama_pengguna = f"{user_data.nama_depan} {user_data.nama_belakang}"
+                else:
+                    nama_pengguna = 'Anonim'
+                if farm_data:
+                    farm_nama =farm_data.nama_peternakan
+                    farm_address = farm_data.alamat_peternakan
+                else:
+                    farm_nama=''
+                    farm_address=''
+                res_data = {
+                    'kode_riwayat':data.kode_riwayat,
+                    'kode_user':data.kode_user,
+                    'peternakan': farm_nama,
+                    'alamat_peternakan': farm_address,
+                    'peternak': nama_pengguna,
+                    'kode_peternakan':data.kode_peternakan,
+                    'kode_penyakit':data.kode_penyakit,
+                    'gejala':[gejala.gejala for gejala in data_gejala],
+                    'persentase':f'{(data.persentase*100):.2f}',
+                    'kesimpulan':data.kesimpulan,
+                    'penyakit': base_penyakit_dict
+                }
+            else:
+                res_data = {
+                    'kode_riwayat': data.kode_riwayat,
+                    'kode_user': data.kode_user,
+                    'kode_peternakan': data.kode_peternakan,
+                    'kode_penyakit': data.kode_penyakit,
+                    'gejala': [gejala.gejala for gejala in data_gejala],
+                    'persentase': f'{(data.persentase * 100):.2f}',
+                    'kesimpulan': data.kesimpulan,
+                    'penyakit': base_penyakit_dict
+                }
+        if data is None:
+            return False, 'Diagnose not found', None
+
+
+        if data.kode_user != kode_user:
+            return False, 'Diagnose not found', None
+        return True, 'Success get Diagnose data', res_data

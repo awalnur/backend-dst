@@ -46,7 +46,7 @@ class PasswordHash(Base):
     salt = Column(String, nullable=False, unique=True)
     password_hash = Column(String, nullable=False, unique=True)
 
-class DetailPengguna(Base):
+class DetailPengguna(Base): # Farm
     __tablename__ = 'tbl_detail_pengguna'
 
     kode_peternakan = Column(Integer, primary_key=True)
@@ -69,7 +69,7 @@ class BasePenyakit(Base):
     penanganan = Column(Text)
     gambar = Column(String)
     created_at = Column(TIMESTAMP, default=func.now(), server_default=func.now(), nullable=False)
-    updated_at = Column(TIMESTAMP, default=func.now(), onupdate=func.now(), nullable=False)
+    updated_at = Column(TIMESTAMP, default=func.now(), onupdate=func.now(), nullable=True)
 
     rule = relationship('Rule', back_populates='penyakit')
     riwayat_diagnosa = relationship('RiwayatDiagnosa', back_populates='penyakit')
@@ -98,12 +98,13 @@ class RiwayatDiagnosa(Base):
     __tablename__ = 'tbl_riwayat_diagnosa'
 
     kode_riwayat = Column(Integer, primary_key=True)
-    kode_pengguna = Column(UUID(as_uuid=True), ForeignKey('tbl_user.kode_user'))
+    kode_user = Column(UUID(as_uuid=True), ForeignKey('tbl_user.kode_user'))
     kode_peternakan = Column(Integer, ForeignKey('tbl_detail_pengguna.kode_peternakan'))
     kode_penyakit = Column(String(3), ForeignKey('tbl_penyakit.kode_penyakit'))
     kode_gejala = Column(ARRAY(String))
-    prosentase = Column(Float)
+    persentase = Column(Float)
     kesimpulan = Column(Text)
+    created_at = Column(TIMESTAMP, server_default=func.now())
 
     # Relationshipsalembic stamp head
     user = relationship('Users', back_populates='riwayat_diagnosa')
@@ -119,4 +120,5 @@ DetailPengguna.riwayat_diagnosa = relationship('RiwayatDiagnosa', back_populates
 BasePenyakit.rule = relationship('Rule', back_populates='penyakit')
 BasePenyakit.riwayat_diagnosa = relationship('RiwayatDiagnosa', back_populates='penyakit')
 BaseGejala.rule = relationship('Rule', back_populates='gejala')
+RiwayatDiagnosa.penyakit = relationship('BasePenyakit', back_populates='riwayat_diagnosa')
 # BaseGejala.riwayat_diagnosa = relationship('RiwayatDiagnosa', back_populates='gejala')

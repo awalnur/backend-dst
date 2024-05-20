@@ -34,14 +34,27 @@ class Penyakit:
             data = None
 
         return data
+
+    async def get_option_penyakit(self):
+        repo = RepoPenyakit(db=self.db, redis=self.redis)
+        option_list = await repo.option()
+        list_option = []
+        for option in option_list:
+            list_option.append({'id':option.kode_penyakit, 'value':option.nama_penyakit})
+        return list_option
     async def get_all_penyakit(self, limit: int = 10, offset: int = 0, searchBy: str = "", search: str = "", order: str = "", by: str = ""):
         repo = RepoPenyakit(db=self.db, redis=self.redis)
         # try:
-        data = await repo.get_all_penyakit(limit=limit, offset=offset, searchBy=searchBy, search=search, order=order, by=by)
+        data,total_data  = await repo.get_all_penyakit(limit=limit, offset=offset, searchBy=searchBy, search=search, order=order, by=by)
         # except Exception as e:
         #     print(f"error when get all penyakit, detail{e}")
         #     data = None
-        return {'data':data}
+        return {
+            'entries':data,
+            'entries_total': len(data),
+            'data_total': total_data,
+            'total_page': int(total_data / limit) + 1 if total_data % limit != 0 else int(total_data / limit),
+        }
 
     async def add_penyakit(self, gambar: UploadFile, **kwargs):
         repo = RepoPenyakit(db=self.db, redis=self.redis)
@@ -106,3 +119,22 @@ class Penyakit:
         except Exception as e:
             print(f"error when delete penyakit, detail{e}")
             raise HTTPException(status_code=400, detail=f"error when delete penyakit, detail{e}")
+    async def most_desease(self):
+        repo = RepoPenyakit(db=self.db, redis=self.redis)
+        data = await repo.most_desease()
+        if data is None:
+            raise HTTPException(status_code=404, detail="Penyakit not found")
+
+        entries = []
+        for raw_data in data:
+            entries.append({
+                'kode_penyakit': raw_data.kode_penyakit,
+                'nama_penyakit': raw_data.nama_penyakit,
+                'definisi': raw_data.definisi,
+                'gambar': raw_data.gambar
+            })
+        data = {
+            'entries': entries,
+            'total': len(entries)
+        }
+        return data

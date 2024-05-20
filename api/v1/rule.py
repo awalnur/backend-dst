@@ -8,20 +8,24 @@
 # ============================================
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Security
 from sqlalchemy.orm import Session
 from starlette.responses import JSONResponse
 
 from config.connection import get_db
 from src.rule.model import addRule, updateRule
 from src.rule.service import RuleService
+from src.schema import Users
 from utils.model.response import DefaultResponse, ErrorResponse
+from utils.security import get_current_user
 
 router_rule = APIRouter(tags=['Rule Router'], prefix='/rule')
 
 @router_rule.post('/create', responses={201: {"model": DefaultResponse},
                                         422: {"model": ErrorResponse, "description": "Unprocessable Entity"}, })
-async def create_rule(db: Annotated[Session, Depends(get_db)], data: addRule):
+async def create_rule(db: Annotated[Session, Depends(get_db)],
+                      current_user: Annotated[Users, Security(get_current_user, scopes=["Admin"])],
+                      data: addRule):
     print(data)
     service = RuleService(db=db)
     resp, message = await service.create_new_rule(data)
@@ -31,13 +35,17 @@ async def create_rule(db: Annotated[Session, Depends(get_db)], data: addRule):
 @router_rule.put('/update/{kode_penyakit}', responses={200: {"model": DefaultResponse},
                                         422: {"model": ErrorResponse, "description": "Unprocessable Entity"},
                                         400: {"model": ErrorResponse, "description": "Bad Request"}})
-async def update_rule(db: Annotated[Session, Depends(get_db)], kode_penyakit: str, data: updateRule):
+async def update_rule(db: Annotated[Session, Depends(get_db)],
+                      current_user: Annotated[Users, Security(get_current_user, scopes=["Admin"])],
+                      kode_penyakit: str, data: updateRule):
     service = RuleService(db=db)
     resp, message, code = await service.update_rule(kode_penyakit, data)
     return JSONResponse(status_code=code, content={'status_code':code, 'message':message, 'data':resp})
 
 @router_rule.delete('/delete/{kode_penyakit}', responses={200: {"model": DefaultResponse}})
-async def delete_rule(db: Annotated[Session, Depends(get_db)], kode_penyakit: str):
+async def delete_rule(db: Annotated[Session, Depends(get_db)],
+                      current_user: Annotated[Users, Security(get_current_user, scopes=["Admin"])],
+                      kode_penyakit: str):
     service = RuleService(db=db)
     resp, message, code = await service.delete_rule(kode_penyakit)
     return JSONResponse(status_code=code, content={'status_code':code, 'message':message, 'data':resp})
@@ -47,3 +55,16 @@ async def get_all_rule_data(db: Annotated[Session, Depends(get_db)], limit: int 
     service = RuleService(db=db)
     resp = await service.get_all_rule(limit=limit, offset=offset, searchBy=searchBy, search=search, order=order, by=by)
     return JSONResponse(status_code=200, content={'status_code':200, 'message':'Success to get all rule', 'data':resp})
+
+
+@router_rule.get('/get/{kode_penyakit}', responses={200: {"model": DefaultResponse}})
+async def get_rule_data(db: Annotated[Session, Depends(get_db)], kode_penyakit: str):
+    service = RuleService(db=db)
+    resp = await service.get_rule_by_id(kode_penyakit=kode_penyakit)
+    return JSONResponse(status_code=200, content={'status_code':200, 'message':'Success to get rule', 'data':resp})
+
+@router_rule.get('/list_penyakit')
+async def get_list_penyakit(db: Annotated[Session, Depends(get_db)], baypass=None):
+    service = RuleService(db=db)
+    resp = await service.get_list_penyakit(baypass=baypass)
+    return JSONResponse(status_code=200, content={'status_code':200, 'message':'Success to get list penyakit', 'data':resp})

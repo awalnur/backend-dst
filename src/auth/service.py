@@ -21,7 +21,7 @@ class Auth:
     def __init__(self, db: Session, redis: Redis):
         self.db = db
         self.redis = redis
-    def login(self, redis, username, password):
+    def login(self, redis, username, password, asAdmin=False):
         # Validasi input
         if not (username and password):
             print("Email/Username dan password harus diisi.")
@@ -33,24 +33,44 @@ class Auth:
             # Mendapatkan data password_hash berdasarkan kode_user
             password_hash = self.db.query(PasswordHash).filter_by(kode_user=user.kode_user).first()
             if password_hash:
+
                 # Verifikasi password
                 password_handler = PasswordHandler()
                 is_password_valid = password_handler.verify_password(password, password_hash.password_hash,
                                                                      password_hash.salt)
 
                 if is_password_valid:
-                    accesstoken = create_access_token(redis, data={'sub': str(user.kode_user)})
-                    res = {
-                        'detail': 'Login Berhasil!',
-                        'data':{
-                            'accesstoken': accesstoken,
-                            'expired': 3600
+                    print(user.level)
+                    if asAdmin and user.level.lower() != 'admin':
+                        print("Email/Username dan password harus diisi.")
+
+                        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
+                                            detail="Invalid email or password")
+
+                    elif asAdmin and user.level.lower() == 'admin':
+
+                        accesstoken = create_access_token(redis, data={'sub': str(user.kode_user)})
+                        res = {
+                            'detail': 'Login Berhasil!',
+                            'data':{
+                                'accesstoken': accesstoken,
+                                'expired': 3600
+                            }
                         }
-                    }
+                    else:
+                        accesstoken = create_access_token(redis, data={'sub': str(user.kode_user)})
+                        res = {
+                            'detail': 'Login Berhasil!',
+                            'data': {
+                                'accesstoken': accesstoken,
+                                'expired': 3600
+                            }
+                        }
                     return res
                 else:
                     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
             else:
                 raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
         else:
+
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")

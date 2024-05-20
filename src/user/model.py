@@ -9,18 +9,20 @@
 from typing import List
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 
 
 class UserBase(BaseModel):
     username: str
-    email: EmailStr
+    email: str
+    nama_depan: str
+    nama_belakang: str
+    alamat: str
+    level: str = Field(default='Pengguna', example='Pengguna')
 
 
 class UserCreate(UserBase):
     password: str
-    role_id: int
-
 
 class UserModel(UserBase):
     user_id: UUID

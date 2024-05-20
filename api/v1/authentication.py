@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends
 from fastapi.security import OAuth2PasswordRequestForm
 from redis import Redis
 from sqlalchemy.orm import Session
+from starlette.responses import JSONResponse
 
 from config.connection import get_db, get_redis
 from src.auth.service import Auth
@@ -23,8 +24,9 @@ auth = APIRouter(tags=['Authentication Router'], prefix='/auth')
 
 @auth.post('/login',responses={200: {"model": DefaultResponse}})
 async def login(db:Annotated[Session, Depends(get_db)],redis: Annotated[Redis, Depends(get_redis)], request: loginRequest):
+
     user = Auth(db = db, redis=redis)
-    response = user.login(redis= redis,username=request.username, password=request.password)
+    response = user.login(redis= redis,username=request.username, password=request.password, asAdmin=request.admin)
 
     return response
 
@@ -40,10 +42,13 @@ db:Annotated[Session, Depends(get_db)],redis: Annotated[Redis, Depends(get_redis
     return Token(access_token=response['data']['accesstoken'], token_type="bearer")
 
 
-
 @auth.post('/register')
 async def register(db: Annotated[Session, Depends(get_db)], registerData: RegisterRequest):
     user = UserService(db = db)
-    user.signup(username=registerData.username, email=registerData.email, password=registerData.password,
+    res, code= user.signup(username=registerData.username, email=registerData.email, password=registerData.password,
                 nama_depan=registerData.first_name, nama_belakang=registerData.last_name, alamat=registerData.address)
-    return 0
+    if res:
+        return JSONResponse(status_code=200, content={'status_code': code, 'message':'Register Success', 'data':[]})
+    else:
+        return JSONResponse(status_code=422, content={'status_code': code, 'message': 'Register Failed', 'data':[]})
+
