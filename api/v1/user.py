@@ -55,7 +55,7 @@ async def update_password(
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[Users, Security(get_current_user, scopes=["Pengguna", "Admin"])],
     payload: updatePassword,
-    kode_user: str
+    kode_user: str=None
 ):
     user = UserService(db=db)
     if kode_user is None:

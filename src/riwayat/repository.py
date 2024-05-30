@@ -29,6 +29,8 @@ class RepoRiwayat:
         if searchBy and search:
             if searchBy == "kode_penyakit":
                 query = query.filter(RiwayatDiagnosa.kode_penyakit.ilike(f"%{search}%"))
+            if searchBy == "nama_penyakit":
+                query = query.filter(BasePenyakit.nama_penyakit.ilike(f"%{search}%"))
             if searchBy == "kode_user":
                 query = query.filter(RiwayatDiagnosa.kode_user.ilike(f"%{search}%"))
             if searchBy == "username":
