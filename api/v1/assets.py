@@ -29,7 +29,13 @@ assets = APIRouter(tags=['Assets Router'], prefix='/assets')
     # https://github.com/tiangolo/fastapi/issues/3258
 
 )
-def get_image():
-    image_bytes = open( os.path.join("uploads","123ciel_2_3840-1920.png"), "rb").read()
+def get_image(images):
+
+    try:
+        image_bytes = open(os.path.join("uploads",images), "rb").read()
+    except FileNotFoundError:
+        image_bytes = open(os.path.join("uploads",'img.png'), "rb").read()
+
+        # return Response(status_code=404)
     image_stream = io.BytesIO(image_bytes)
     return StreamingResponse(content=image_stream, media_type="image/png")

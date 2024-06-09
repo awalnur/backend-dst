@@ -144,5 +144,5 @@ class RepoPenyakit:
         return data_penyakit
 
     async def most_desease(self):
-        data = self.db.query(BasePenyakit.kode_penyakit, BasePenyakit.nama_penyakit, BasePenyakit.gambar, BasePenyakit.definisi, func.count(RiwayatDiagnosa.kode_penyakit)).join(RiwayatDiagnosa, BasePenyakit.kode_penyakit == RiwayatDiagnosa.kode_penyakit).filter(BasePenyakit.kode_penyakit!='00').group_by(RiwayatDiagnosa.kode_penyakit, BasePenyakit.kode_penyakit).order_by(func.count(BasePenyakit.kode_penyakit).desc()).limit(3).all()
+        data = self.db.query(BasePenyakit).filter(BasePenyakit.kode_penyakit!='00').order_by(BasePenyakit.kode_penyakit.asc()).all()
         return data

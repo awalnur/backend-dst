@@ -69,7 +69,8 @@ class Penyakit:
         if gambar is not None:
             try:
                 # Save the uploaded file
-                file_path = os.path.join(upload_folder, kwargs['kode_penyakit']+gambar.filename)
+                filenames = gambar.filename.replace(' ', '_')
+                file_path = os.path.join(kwargs['kode_penyakit']+filenames)
                 with open(file_path, "wb") as buffer:
                     shutil.copyfileobj(gambar.file, buffer)
                     kwargs['gambar'] = file_path
