@@ -6,6 +6,8 @@
 #   Copyright © 2024 Delameta Bilano     
 #                                           
 # ============================================
+import json
+
 from sqlalchemy import and_
 from sqlalchemy.orm import Session
 
@@ -20,7 +22,7 @@ class DempsterShafer:
         self.session = session
         self.repo = RepoDempsterShafer(session)
         self.penyakit = RepoPenyakit(session)
-    def calculate_dempster_shafer(self, observations, belief_dict):
+    def     calculate_dempster_shafer(self, observations, belief_dict):
         # TODO
         m = []
         for keys in belief_dict:
@@ -66,7 +68,8 @@ class DempsterShafer:
                     m = result
 
         result = max(m, key=lambda x: x['bel'])
-        return result
+        res_m = sorted(m, key=lambda x: x['bel'], reverse=True)
+        return result, res_m
 
     async def dempster_shafer(self, data: dict, user_id: str=None, farm_id: str=None):
         # TODO
@@ -82,9 +85,11 @@ class DempsterShafer:
             }
 
         sorted_evidence = dict(sorted(evidence.items(), key=lambda item: item[1]['m'], reverse=True))
-        res = self.calculate_dempster_shafer(data, sorted_evidence)
+        res, all = self.calculate_dempster_shafer(data, sorted_evidence)
         result={'penyakit': '00','kesimpulan':'Penyakit Tidak terdeteksi', 'bel': 0}
+        print(all)
         if res['bel'] > 0.5:
+            # print(res)
             res_penyakit = await self.penyakit.get_penyakit_by_id(kode_penyakit=list(res['himpunan'])[0])
             print(res_penyakit[1])
             result['penyakit']= list(res['himpunan'])[0]
@@ -98,7 +103,9 @@ class DempsterShafer:
                 'kode_pengguna': user_id,
                 'kode_peternakan': data['kode_peternakan'],
                 'persentase': result['bel'],
-                'kesimpulan': result['kesimpulan']}
+                'kesimpulan': result['kesimpulan'],
+                'other': json.dumps(all, default=list)
+            }
 
         else:
             data = {
@@ -107,7 +114,9 @@ class DempsterShafer:
                 'kode_pengguna': None,
                 'kode_peternakan': None,
                 'persentase': result['bel'],
-                'kesimpulan': result['kesimpulan']}
+                'kesimpulan': result['kesimpulan'],
+                'other': json.dumps(all, default=list)
+            }
 
         success, message, id = await self.save_diagnose(data=data)
         return success, message, id
@@ -120,7 +129,8 @@ class DempsterShafer:
             'kode_user': data['kode_pengguna'],
             'kode_peternakan': data['kode_peternakan'],
             'persentase': data['persentase'],
-            'kesimpulan': data['kesimpulan']
+            'kesimpulan': data['kesimpulan'],
+            'other': data['other'] if 'other' in data else ''
         }
 
         success, message, id = await self.repo.save_diagnose(data=insert_data)
@@ -144,11 +154,12 @@ class DempsterShafer:
             RiwayatDiagnosa.persentase,
             RiwayatDiagnosa.kesimpulan,
             RiwayatDiagnosa.kode_penyakit,
+            RiwayatDiagnosa.other,
             BasePenyakit
         ).join(BasePenyakit, BasePenyakit.kode_penyakit == RiwayatDiagnosa.kode_penyakit).filter(filter).first()
         if data:
             # Extract the fields from the query result
-            (kode_riwayat, kode_user, kode_peternakan, kode_gejala, persentase, kesimpulan, kode_penyakit,
+            (kode_riwayat, kode_user, kode_peternakan, kode_gejala, persentase, kesimpulan, kode_penyakit, other,
              base_penyakit) = data
 
             # Convert the BasePenyakit object to a dictionary
@@ -184,6 +195,7 @@ class DempsterShafer:
                     'gejala':[gejala.gejala for gejala in data_gejala],
                     'persentase':f'{(data.persentase*100):.2f}',
                     'kesimpulan':data.kesimpulan,
+                    'other':data.other,
                     'penyakit': base_penyakit_dict
                 }
             else:
@@ -195,6 +207,7 @@ class DempsterShafer:
                     'gejala': [gejala.gejala for gejala in data_gejala],
                     'persentase': f'{(data.persentase * 100):.2f}',
                     'kesimpulan': data.kesimpulan,
+                    'other': data.other,
                     'penyakit': base_penyakit_dict
                 }
         if data is None:

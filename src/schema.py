@@ -8,9 +8,10 @@
 # ============================================
 import uuid
 
+from pydantic import Json
 from sqlalchemy import create_engine, Column, Integer, String, Text, Enum, Float, TIMESTAMP, ARRAY, UniqueConstraint, \
     ForeignKey, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 
 from config.connection import Base
@@ -105,6 +106,7 @@ class RiwayatDiagnosa(Base):
     persentase = Column(Float)
     kesimpulan = Column(Text)
     created_at = Column(TIMESTAMP, server_default=func.now())
+    other = Column(JSONB)
 
     # Relationshipsalembic stamp head
     user = relationship('Users', back_populates='riwayat_diagnosa')
