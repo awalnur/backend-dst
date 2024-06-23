@@ -22,7 +22,8 @@ class DempsterShafer:
         self.session = session
         self.repo = RepoDempsterShafer(session)
         self.penyakit = RepoPenyakit(session)
-    def     calculate_dempster_shafer(self, observations, belief_dict):
+
+    def calculate_dempster_shafer(self, observations, belief_dict):
         # TODO
         m = []
         for keys in belief_dict:
@@ -60,7 +61,7 @@ class DempsterShafer:
                     else:
                         sums[himpunan] = entry['bel']
                 # Convert aggregated sums to list of dictionaries
-                if div==0:
+                if div == 0:
                     result = [{'himpunan': set(himpunan), 'bel': 0} for himpunan, bel in sums.items()]
                     m = result
                 else:
@@ -71,7 +72,7 @@ class DempsterShafer:
         res_m = sorted(m, key=lambda x: x['bel'], reverse=True)
         return result, res_m
 
-    async def dempster_shafer(self, data: dict, user_id: str=None, farm_id: str=None):
+    async def dempster_shafer(self, data: dict, user_id: str = None, farm_id: str = None):
         # TODO
         evidence = {}
 
@@ -86,13 +87,26 @@ class DempsterShafer:
 
         sorted_evidence = dict(sorted(evidence.items(), key=lambda item: item[1]['m'], reverse=True))
         res, all = self.calculate_dempster_shafer(data, sorted_evidence)
-        result={'penyakit': '00','kesimpulan':'Penyakit Tidak terdeteksi', 'bel': 0}
-        print(all)
+        result = {'penyakit': '00', 'kesimpulan': 'Sistem tidak dapat mendeteksi jenis penyakit', 'bel': 0}
+
+        # print(all, sorted_evidence)
+        other = []
+        for x in all:
+            # print(len(x['himpunan']))
+            if len(x['himpunan']) == 1:
+                if list(x['himpunan'])[0]!='0':
+                    res_penyakit = await self.penyakit.get_penyakit_by_id(kode_penyakit=list(x['himpunan'])[0])
+                    other_item = {'penyakit':res_penyakit[1], 'bel': round(x['bel'],4)}
+                    if list(res['himpunan'])[0] != list(x['himpunan'])[0]:
+                        other.append(other_item)
+                else:
+                    other_item = {'penyakit':'Tidak ada penyakit', 'bel': round(x['bel'],4)}
+                    if res['bel'] > 0.5:
+                        other.append(other_item)
+        print(other)
         if res['bel'] > 0.5:
-            # print(res)
             res_penyakit = await self.penyakit.get_penyakit_by_id(kode_penyakit=list(res['himpunan'])[0])
-            print(res_penyakit[1])
-            result['penyakit']= list(res['himpunan'])[0]
+            result['penyakit'] = list(res['himpunan'])[0]
             result['bel'] = res['bel']
             result['kesimpulan'] = res_penyakit[1]
 
@@ -104,7 +118,7 @@ class DempsterShafer:
                 'kode_peternakan': data['kode_peternakan'],
                 'persentase': result['bel'],
                 'kesimpulan': result['kesimpulan'],
-                'other': json.dumps(all, default=list)
+                'other': json.dumps(other, default=list)
             }
 
         else:
@@ -115,7 +129,7 @@ class DempsterShafer:
                 'kode_peternakan': None,
                 'persentase': result['bel'],
                 'kesimpulan': result['kesimpulan'],
-                'other': json.dumps(all, default=list)
+                'other': json.dumps(other, default=list)
             }
 
         success, message, id = await self.save_diagnose(data=data)
@@ -137,15 +151,14 @@ class DempsterShafer:
         print(success, message)
         return success, message, id
 
-
-    async def get_diagnose_by_id(self, id: int, kode_user:str=None, admin=False):
+    async def get_diagnose_by_id(self, id: int, kode_user: str = None, admin=False):
         if admin is True:
             filter = and_(RiwayatDiagnosa.kode_riwayat == id)
         else:
             if kode_user is not None:
                 filter = and_(RiwayatDiagnosa.kode_riwayat == id, RiwayatDiagnosa.kode_user == kode_user)
             else:
-                filter = and_(RiwayatDiagnosa.kode_riwayat == id, RiwayatDiagnosa.kode_user==None)
+                filter = and_(RiwayatDiagnosa.kode_riwayat == id, RiwayatDiagnosa.kode_user == None)
         data = self.session.query(
             RiwayatDiagnosa.kode_riwayat,
             RiwayatDiagnosa.kode_user,
@@ -169,33 +182,36 @@ class DempsterShafer:
             base_penyakit_dict.pop('_sa_instance_state', None)
             base_penyakit_dict.pop('created_at', None)
             base_penyakit_dict.pop('updated_at', None)
-            data_gejala = self.session.query(BaseGejala.gejala).filter(BaseGejala.kode_gejala.in_(data.kode_gejala)).all()
+            data_gejala = self.session.query(BaseGejala.gejala).filter(
+                BaseGejala.kode_gejala.in_(data.kode_gejala)).all()
             if admin:
-                user_data = self.session.query(Users.username, Users.nama_depan, Users.nama_belakang).filter(Users.kode_user == data.kode_user).first()
-                farm_data = self.session.query(DetailPengguna.nama_peternakan, DetailPengguna.alamat_peternakan).filter(DetailPengguna.kode_peternakan == data.kode_peternakan).first()
+                user_data = self.session.query(Users.username, Users.nama_depan, Users.nama_belakang).filter(
+                    Users.kode_user == data.kode_user).first()
+                farm_data = self.session.query(DetailPengguna.nama_peternakan, DetailPengguna.alamat_peternakan).filter(
+                    DetailPengguna.kode_peternakan == data.kode_peternakan).first()
 
                 if user_data:
                     nama_pengguna = f"{user_data.nama_depan} {user_data.nama_belakang}"
                 else:
                     nama_pengguna = 'Anonim'
                 if farm_data:
-                    farm_nama =farm_data.nama_peternakan
+                    farm_nama = farm_data.nama_peternakan
                     farm_address = farm_data.alamat_peternakan
                 else:
-                    farm_nama=''
-                    farm_address=''
+                    farm_nama = ''
+                    farm_address = ''
                 res_data = {
-                    'kode_riwayat':data.kode_riwayat,
-                    'kode_user':data.kode_user,
+                    'kode_riwayat': data.kode_riwayat,
+                    'kode_user': data.kode_user,
                     'peternakan': farm_nama,
                     'alamat_peternakan': farm_address,
                     'peternak': nama_pengguna,
-                    'kode_peternakan':data.kode_peternakan,
-                    'kode_penyakit':data.kode_penyakit,
-                    'gejala':[gejala.gejala for gejala in data_gejala],
-                    'persentase':f'{(data.persentase*100):.2f}',
-                    'kesimpulan':data.kesimpulan,
-                    'other':data.other,
+                    'kode_peternakan': data.kode_peternakan,
+                    'kode_penyakit': data.kode_penyakit,
+                    'gejala': [gejala.gejala for gejala in data_gejala],
+                    'persentase': f'{(data.persentase * 100):.2f}',
+                    'kesimpulan': data.kesimpulan,
+                    'other': data.other,
                     'penyakit': base_penyakit_dict
                 }
             else:
@@ -212,7 +228,6 @@ class DempsterShafer:
                 }
         if data is None:
             return False, 'Diagnose not found', None
-
 
         if data.kode_user != kode_user:
             return False, 'Diagnose not found', None
