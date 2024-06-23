@@ -103,7 +103,6 @@ class DempsterShafer:
                     other_item = {'penyakit':'Tidak ada penyakit', 'bel': round(x['bel'],4)}
                     if res['bel'] > 0.5:
                         other.append(other_item)
-        print(other)
         if res['bel'] > 0.5:
             res_penyakit = await self.penyakit.get_penyakit_by_id(kode_penyakit=list(res['himpunan'])[0])
             result['penyakit'] = list(res['himpunan'])[0]
