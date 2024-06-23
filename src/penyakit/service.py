@@ -98,7 +98,7 @@ class Penyakit:
                 file_path = os.path.join(self.upload_folder, kode_penyakit+gambar.filename)
                 with open(file_path, "wb") as buffer:
                     shutil.copyfileobj(gambar.file, buffer)
-                    kwargs['gambar'] = file_path
+                    kwargs['gambar'] = kode_penyakit+gambar.filename
             except Exception as e:
                 raise HTTPException(status_code=500, detail=str(e))
         try:
