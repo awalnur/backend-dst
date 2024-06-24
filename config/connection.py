@@ -52,7 +52,7 @@ def get_db():
 
 Base = declarative_base()
 
-redis_url = 'redis://localhost:6379'
+redis_url = config.REDIS_URL
 
 
 # def get_redis():
